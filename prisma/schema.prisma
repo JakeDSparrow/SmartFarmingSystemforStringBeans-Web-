@@ -1,0 +1,138 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  password      String
+  firstName     String?
+  lastName      String?
+  role          String    @default("USER")
+  isActive      Boolean   @default(true)
+  lastActive    DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  areas         Area[]
+  schedules     IrrigationSchedule[]
+  
+  @@map("users")
+}
+
+model Area {
+  id              String    @id @default(uuid())
+  name            String
+  description     String?
+  size            Float?
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  soilMoisture    SoilMoisture[]
+  temperature     Temperature[]
+  humidity        Humidity[]
+  waterUsage      WaterUsage[]
+  schedules       IrrigationSchedule[]
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  @@map("areas")
+}
+
+model SoilMoisture {
+  id          String    @id @default(uuid())
+  areaId      String
+  area        Area      @relation(fields: [areaId], references: [id], onDelete: Cascade)
+  value       Float
+  timestamp   DateTime  @default(now())
+  
+  @@map("soil_moisture")
+}
+
+model Temperature {
+  id          String    @id @default(uuid())
+  areaId      String
+  area        Area      @relation(fields: [areaId], references: [id], onDelete: Cascade)
+  value       Float
+  timestamp   DateTime  @default(now())
+  
+  @@map("temperature")
+}
+
+model Humidity {
+  id          String    @id @default(uuid())
+  areaId      String
+  area        Area      @relation(fields: [areaId], references: [id], onDelete: Cascade)
+  value       Float
+  timestamp   DateTime  @default(now())
+  
+  @@map("humidity")
+}
+
+model WaterUsage {
+  id          String    @id @default(uuid())
+  areaId      String
+  area        Area      @relation(fields: [areaId], references: [id], onDelete: Cascade)
+  amount      Float
+  duration    Int
+  status      String    @default("COMPLETED")
+  startTime   DateTime
+  endTime     DateTime?
+  
+  @@map("water_usage")
+}
+
+model IrrigationSchedule {
+  id              String    @id @default(uuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  areaId          String
+  area            Area      @relation(fields: [areaId], references: [id], onDelete: Cascade)
+  
+  title           String
+  startTime       String
+  duration        Int
+  daysOfWeek      String
+  isActive        Boolean   @default(true)
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  @@map("irrigation_schedules")
+}
+
+model WeatherData {
+  id              String    @id @default(uuid())
+  location        String
+  temperature     Float
+  humidity        Float
+  precipitation   Float
+  windSpeed       Float
+  uvIndex         String
+  condition       String
+  forecast        String
+  timestamp       DateTime  @default(now())
+  
+  @@map("weather_data")
+}
+
+model SeasonalData {
+  id              String    @id @default(uuid())
+  month           String
+  year            Int
+  totalWaterUsage Float
+  avgTemperature  Float
+  avgHumidity     Float
+  season          String
+  
+  createdAt       DateTime  @default(now())
+  
+  @@unique([month, year])
+  @@map("seasonal_data")
+}
