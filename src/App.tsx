@@ -2,6 +2,14 @@ import { useState } from 'react';
 import Sidebar from './components/common/Sidebar';
 import Header from './components/common/Header';
 import Dashboard from './pages/Dashboard';
+import Users from './pages/Users';
+import SoilMoisture from './pages/SoilMoisture';
+import Temperature from './pages/Temperature';
+import Humidity from './pages/Humidity';
+import Weather from './pages/Weather';
+import WaterDistribution from './pages/WaterDistribution';
+import IrrigationSchedule from './pages/IrrigationSchedule';
+import SeasonalSummary from './pages/SeasonalSummary';
 
 function App() {
   const [currentView, setCurrentView] = useState<string>('dashboard');
@@ -12,23 +20,23 @@ function App() {
       case 'dashboard':
         return <Dashboard />;
       case 'users':
-        return <div className="text-2xl">Users Page - Coming Soon</div>;
+        return <Users />;
       case 'soil-moisture':
-        return <div className="text-2xl">Soil Moisture Page - Coming Soon</div>;
+        return <SoilMoisture />;
       case 'temperature':
-        return <div className="text-2xl">Temperature Page - Coming Soon</div>;
+        return <Temperature />;
       case 'humidity':
-        return <div className="text-2xl">Humidity Page - Coming Soon</div>;
+        return <Humidity />;
       case 'weather':
-        return <div className="text-2xl">Weather Page - Coming Soon</div>;
+        return <Weather />;
       case 'water-distribution':
-        return <div className="text-2xl">Water Distribution Page - Coming Soon</div>;
+        return <WaterDistribution />;
       case 'irrigation-schedule':
-        return <div className="text-2xl">Irrigation Schedule Page - Coming Soon</div>;
+        return <IrrigationSchedule />;
       case 'pattern-analyzer':
         return <div className="text-2xl">Pattern Analyzer Page - Coming Soon</div>;
       case 'seasonal-summary':
-        return <div className="text-2xl">Seasonal Summary Page - Coming Soon</div>;
+        return <SeasonalSummary />;
       case 'settings':
         return <div className="text-2xl">Settings Page - Coming Soon</div>;
       default:
