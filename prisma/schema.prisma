@@ -3,136 +3,232 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
-model User {
-  id            String    @id @default(uuid())
-  email         String    @unique
-  password      String
-  firstName     String?
-  lastName      String?
-  role          String    @default("USER")
-  isActive      Boolean   @default(true)
-  lastActive    DateTime?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  
-  areas         Area[]
-  schedules     IrrigationSchedule[]
-  
-  @@map("users")
+model user_profiles {
+  id                       String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name                     String                    @db.VarChar(255)
+  email                    String                    @unique @db.VarChar(255)
+  role                     user_role                 @default(Farmer)
+  phone_number             String?                   @db.VarChar(20)
+  created_at               DateTime                  @default(now()) @db.Timestamptz(6)
+  password                 String?
+  device_id                String?
+  device_model             String?
+  profile_picture          String?
+  farms                    farm[]
+  triggered_irrigations    irrigation_log[]          @relation("TriggeredIrrigations")
+  recommendation_feedbacks recommendation_feedback[]
+  recommendation_logs      recommendation_log[]
+  system_logs              system_log[]
+
+  @@map("user_profiles")
 }
 
-model Area {
-  id              String    @id @default(uuid())
-  name            String
-  description     String?
-  size            Float?
-  userId          String
-  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  soilMoisture    SoilMoisture[]
-  temperature     Temperature[]
-  humidity        Humidity[]
-  waterUsage      WaterUsage[]
-  schedules       IrrigationSchedule[]
-  
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  
-  @@map("areas")
+model farm {
+  id                  BigInt               @id @default(autoincrement())
+  owner_id            String               @db.Uuid
+  farm_name           String               @db.VarChar(255)
+  location            String?              @db.VarChar(255)
+  area_sqm            Float?               @db.Real
+  crop_type           String               @default("String Beans") @db.VarChar(100)
+  created_at          DateTime             @default(now()) @db.Timestamptz(6)
+  analytics_reports   analytics_report[]
+  crop_configs        crop_config?
+  owner               user_profiles        @relation(fields: [owner_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  irrigation_systems  irrigation_system[]
+  knn_prediction_log  knn_prediction_log[]
+  recommendation_logs recommendation_log[]
+  sensor_devices      sensor_device[]
+
+  @@map("farm")
 }
 
-model SoilMoisture {
-  id          String    @id @default(uuid())
-  areaId      String
-  area        Area      @relation(fields: [areaId], references: [id], onDelete: Cascade)
-  value       Float
-  timestamp   DateTime  @default(now())
-  
-  @@map("soil_moisture")
+model crop_config {
+  id                         BigInt   @id @default(autoincrement())
+  farm_id                    BigInt   @unique
+  optimal_moisture_threshold Float    @db.Real
+  min_temperature_c          Float?   @db.Real
+  max_temperature_c          Float?   @db.Real
+  water_requirement_liters   Float?   @db.Real
+  watering_frequency_days    Int?
+  last_updated_at            DateTime @default(now()) @db.Timestamptz(6)
+  farm                       farm     @relation(fields: [farm_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@map("crop_config")
 }
 
-model Temperature {
-  id          String    @id @default(uuid())
-  areaId      String
-  area        Area      @relation(fields: [areaId], references: [id], onDelete: Cascade)
-  value       Float
-  timestamp   DateTime  @default(now())
-  
-  @@map("temperature")
+model irrigation_system {
+  id                   BigInt           @id @default(autoincrement())
+  farm_id              BigInt
+  system_name          String           @db.VarChar(255)
+  hardware_model       String?          @db.VarChar(100)
+  pump_status          Boolean          @default(false)
+  water_source_details String?
+  created_at           DateTime         @default(now()) @db.Timestamptz(6)
+  irrigation_logs      irrigation_log[]
+  farm                 farm             @relation(fields: [farm_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@map("irrigation_system")
 }
 
-model Humidity {
-  id          String    @id @default(uuid())
-  areaId      String
-  area        Area      @relation(fields: [areaId], references: [id], onDelete: Cascade)
-  value       Float
-  timestamp   DateTime  @default(now())
-  
-  @@map("humidity")
+model irrigation_log {
+  id                    BigInt              @id @default(autoincrement())
+  system_id             BigInt
+  triggered_by_user_id  String?             @db.Uuid
+  start_time            DateTime            @default(now()) @db.Timestamptz(6)
+  end_time              DateTime?           @db.Timestamptz(6)
+  duration_seconds      Int?
+  water_volume_consumed Float?              @db.Real
+  trigger_type          trigger_type
+  moisture_before       Float?              @db.Real
+  moisture_after        Float?              @db.Real
+  recommendation_id     BigInt?
+  recommendation_log    recommendation_log? @relation(fields: [recommendation_id], references: [id], onUpdate: NoAction)
+  system                irrigation_system   @relation(fields: [system_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  triggered_by          user_profiles?      @relation("TriggeredIrrigations", fields: [triggered_by_user_id], references: [id], onUpdate: NoAction)
+
+  @@map("irrigation_log")
 }
 
-model WaterUsage {
-  id          String    @id @default(uuid())
-  areaId      String
-  area        Area      @relation(fields: [areaId], references: [id], onDelete: Cascade)
-  amount      Float
-  duration    Int
-  status      String    @default("COMPLETED")
-  startTime   DateTime
-  endTime     DateTime?
-  
-  @@map("water_usage")
+model sensor_device {
+  id                    BigInt           @id @default(autoincrement())
+  farm_id               BigInt
+  sensor_type           sensor_type
+  serial_number         String?          @unique @db.VarChar(50)
+  installation_date     DateTime?        @db.Date
+  last_calibration_date DateTime?        @db.Date
+  status                Boolean          @default(true)
+  farm                  farm             @relation(fields: [farm_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  sensor_readings       sensor_reading[]
+
+  @@map("sensor_device")
 }
 
-model IrrigationSchedule {
-  id              String    @id @default(uuid())
-  userId          String
-  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  areaId          String
-  area            Area      @relation(fields: [areaId], references: [id], onDelete: Cascade)
-  
-  title           String
-  startTime       String
-  duration        Int
-  daysOfWeek      String
-  isActive        Boolean   @default(true)
-  
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-  
-  @@map("irrigation_schedules")
+model sensor_reading {
+  id                 BigInt               @id @default(autoincrement())
+  sensor_id          BigInt
+  timestamp          DateTime             @default(now()) @db.Timestamptz(6)
+  value              Float                @db.Real
+  unit               String               @db.VarChar(10)
+  weather_forecast   String?              @db.VarChar(255)
+  recommendation_log recommendation_log[]
+  sensor             sensor_device        @relation(fields: [sensor_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([timestamp], map: "idx_sensor_reading_time")
+  @@map("sensor_reading")
 }
 
-model WeatherData {
-  id              String    @id @default(uuid())
-  location        String
-  temperature     Float
-  humidity        Float
-  precipitation   Float
-  windSpeed       Float
-  uvIndex         String
-  condition       String
-  forecast        String
-  timestamp       DateTime  @default(now())
-  
-  @@map("weather_data")
+model recommendation_log {
+  id                       BigInt                    @id @default(autoincrement())
+  farm_id                  BigInt
+  generated_at             DateTime                  @default(now()) @db.Timestamptz(6)
+  sensor_reading_id        BigInt?
+  recommendation_type      String                    @db.VarChar(100)
+  recommendation_details   String
+  status                   recommendation_status     @default(Pending)
+  priority_level           Int?                      @default(3)
+  actioned_by_user_id      String?                   @db.Uuid
+  executed_at              DateTime?                 @db.Timestamptz(6)
+  expires_at               DateTime?                 @db.Timestamptz(6)
+  irrigation_log           irrigation_log[]
+  knn_prediction_log       knn_prediction_log[]
+  recommendation_feedbacks recommendation_feedback[]
+  actioned_by              user_profiles?            @relation(fields: [actioned_by_user_id], references: [id], onUpdate: NoAction)
+  farm                     farm                      @relation(fields: [farm_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  sensor_reading           sensor_reading?           @relation(fields: [sensor_reading_id], references: [id], onUpdate: NoAction)
+
+  @@index([status], map: "idx_recommendation_status")
+  @@index([generated_at], map: "idx_recommendation_time")
+  @@map("recommendation_log")
 }
 
-model SeasonalData {
-  id              String    @id @default(uuid())
-  month           String
-  year            Int
-  totalWaterUsage Float
-  avgTemperature  Float
-  avgHumidity     Float
-  season          String
-  
-  createdAt       DateTime  @default(now())
-  
-  @@unique([month, year])
-  @@map("seasonal_data")
+model recommendation_feedback {
+  id                BigInt             @id @default(autoincrement())
+  recommendation_id BigInt
+  user_id           String             @db.Uuid
+  was_helpful       Boolean?
+  feedback_text     String?
+  submitted_at      DateTime           @default(now()) @db.Timestamptz(6)
+  recommendation    recommendation_log @relation(fields: [recommendation_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  user              user_profiles      @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@map("recommendation_feedback")
+}
+
+model analytics_report {
+  id             BigInt   @id @default(autoincrement())
+  farm_id        BigInt
+  report_type    String   @db.VarChar(100)
+  date_generated DateTime @default(now()) @db.Timestamptz(6)
+  report_data    String?
+  farm           farm     @relation(fields: [farm_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@map("analytics_report")
+}
+
+model system_log {
+  id                   BigInt         @id @default(autoincrement())
+  timestamp            DateTime       @default(now()) @db.Timestamptz(6)
+  log_category         log_category
+  activity_description String
+  related_user_id      String?        @db.Uuid
+  user                 user_profiles? @relation(fields: [related_user_id], references: [id], onUpdate: NoAction)
+
+  @@map("system_log")
+}
+
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model knn_prediction_log {
+  id                    BigInt              @id @default(autoincrement())
+  farm_id               BigInt
+  prediction_time       DateTime            @default(now()) @db.Timestamptz(6)
+  current_soil_moisture Float               @db.Real
+  current_temperature   Float               @db.Real
+  current_humidity      Float               @db.Real
+  weather_forecast      String?             @db.VarChar(255)
+  k_value               Int
+  predicted_action      String              @db.VarChar(100)
+  confidence_score      Float?              @db.Real
+  nearest_neighbors     Json?
+  recommendation_id     BigInt?
+  farm                  farm                @relation(fields: [farm_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  recommendation_log    recommendation_log? @relation(fields: [recommendation_id], references: [id], onUpdate: NoAction)
+
+  @@index([prediction_time], map: "idx_knn_prediction_time")
+}
+
+enum log_category {
+  Info
+  Alert
+  Error
+  Configuration
+}
+
+enum recommendation_status {
+  Pending
+  Acknowledged
+  In_Progress  @map("In Progress")
+  Completed
+  Ignored
+  Expired
+}
+
+enum sensor_type {
+  Soil_Moisture @map("Soil Moisture")
+  Temperature
+  Humidity
+}
+
+enum trigger_type {
+  Automated
+  Manual
+}
+
+enum user_role {
+  Farmer
+  Admin
 }

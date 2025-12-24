@@ -9,11 +9,24 @@ import Humidity from './pages/Humidity';
 import Weather from './pages/Weather';
 import WaterDistribution from './pages/WaterDistribution';
 import IrrigationSchedule from './pages/IrrigationSchedule';
+import PatternAnalyzer from './pages/PatternAnalyzer';
 import SeasonalSummary from './pages/SeasonalSummary';
+import Settings from './pages/Settings';
+import Login from './pages/Login';
 
 function App() {
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [currentView, setCurrentView] = useState<string>('dashboard');
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true);
+
+  const handleLogin = () => {
+    setIsAuthenticated(true);
+  };
+
+  const handleLogout = () => {
+    setIsAuthenticated(false);
+    setCurrentView('dashboard');
+  };
 
   const renderContent = () => {
     switch (currentView) {
@@ -34,26 +47,30 @@ function App() {
       case 'irrigation-schedule':
         return <IrrigationSchedule />;
       case 'pattern-analyzer':
-        return <div className="text-2xl">Pattern Analyzer Page - Coming Soon</div>;
+        return <PatternAnalyzer />;
       case 'seasonal-summary':
         return <SeasonalSummary />;
       case 'settings':
-        return <div className="text-2xl">Settings Page - Coming Soon</div>;
+        return <Settings />;
       default:
         return <Dashboard />;
     }
   };
 
+  // Show login page if not authenticated
+  if (!isAuthenticated) {
+    return <Login onLogin={handleLogin} />;
+  }
+
+  // Show main app if authenticated
   return (
     <div className="flex h-screen bg-gray-100">
-      {/* Sidebar - now properly collapsible */}
       <Sidebar 
         currentView={currentView}
         setCurrentView={setCurrentView}
         isSidebarOpen={isSidebarOpen}
       />
       
-      {/* Main Content Area */}
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header 
           isSidebarOpen={isSidebarOpen}
